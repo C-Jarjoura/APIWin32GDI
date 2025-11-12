@@ -2,6 +2,11 @@
 #include <windows.h>
 
 // ===============================
+// ICÔNE DE L’APPLICATION
+// ===============================
+
+IDI_MAIN_ICON ICON "ApiWin32Gdi.ico"
+// ===============================
 // MENU PRINCIPAL
 // ===============================
 

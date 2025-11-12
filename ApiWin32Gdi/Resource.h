@@ -22,4 +22,5 @@
 // ---------- Boîte "À propos" ----------
 #define IDD_ABOUT          2001
 #define IDC_ABOUT_TEXT     2002
+#define IDI_MAIN_ICON      9001
 

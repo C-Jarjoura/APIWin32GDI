@@ -1,45 +1,61 @@
+ï»¿#define UNICODE
+#define _CRT_SECURE_NO_WARNINGS
 #include <windows.h>
 #include "MainWindow.h"
+#include "resource.h"   // ðŸ‘ˆ NÃ©cessaire pour IDI_MAIN_ICON et IDR_MAINMENU
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) {
-    // Enregistrer la classe de fenêtre principale
+// ----------------------------------------------------
+// Point dâ€™entrÃ©e principal de lâ€™application Win32
+// ----------------------------------------------------
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
+{
+    // DÃ©finition de la classe de fenÃªtre principale
     WNDCLASS wc = {};
     wc.lpfnWndProc = MainWindowProc;
     wc.hInstance = hInstance;
     wc.lpszClassName = L"StegToolMainWindow";
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
     wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    wc.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_MAIN_ICON)); // ðŸ‘ˆ IcÃ´ne principale
 
-    if (!RegisterClass(&wc)) {
-        MessageBox(NULL, L"Erreur : Enregistrement de la classe échoué.", L"Erreur", MB_ICONERROR);
+    // Enregistrement de la classe
+    if (!RegisterClass(&wc))
+    {
+        MessageBox(NULL, L"Erreur : Enregistrement de la classe Ã©chouÃ©.", L"Erreur", MB_ICONERROR);
         return 0;
     }
 
-    // Créer la fenêtre principale
+    // CrÃ©ation de la fenÃªtre principale
     HWND hwnd = CreateWindowEx(
         0,
         wc.lpszClassName,
-        L"Outil de stéganographie BMP",
+        L"Outil de stÃ©ganographie BMP",
         WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT, 900, 700,
         NULL, NULL, hInstance, NULL
     );
 
-    if (!hwnd) {
-        MessageBox(NULL, L"Erreur : Création de la fenêtre échouée.", L"Erreur", MB_ICONERROR);
+    if (!hwnd)
+    {
+        MessageBox(NULL, L"Erreur : CrÃ©ation de la fenÃªtre Ã©chouÃ©e.", L"Erreur", MB_ICONERROR);
         return 0;
     }
 
-    // Créer le menu
+    // Chargement du menu depuis les ressources
     HMENU hMenuBar = LoadMenu(hInstance, MAKEINTRESOURCE(IDR_MAINMENU));
-    SetMenu(hwnd, hMenuBar);
+    if (hMenuBar)
+        SetMenu(hwnd, hMenuBar);
+    else
+        MessageBox(hwnd, L"Impossible de charger le menu.", L"Avertissement", MB_ICONWARNING);
 
+    // Affichage de la fenÃªtre
     ShowWindow(hwnd, nCmdShow);
     UpdateWindow(hwnd);
 
     // Boucle principale de messages
-    MSG msg;
-    while (GetMessage(&msg, NULL, 0, 0)) {
+    MSG msg = {};
+    while (GetMessage(&msg, NULL, 0, 0))
+    {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
