@@ -1,0 +1,5 @@
+#pragma once
+class StegEngine
+{
+};
+
