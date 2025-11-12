@@ -1,10 +1,10 @@
-// StegEngine.cpp
+ï»¿// StegEngine.cpp
 #include "StegEngine.h"
 #include <cstring>
 
 static const BYTE MAGIC[4] = { 'S','T','E','G' };
 
-// On écrit les bits dans l’ordre BGRA (on n’utilise pas A), ici B,G,R => 3 LSB par pixel.
+// On Ã©crit les bits dans lâ€™ordre BGRA (on nâ€™utilise pas A), ici B,G,R => 3 LSB par pixel.
 static inline void put_bit(BYTE& b, int bit) {
     b = (BYTE)((b & 0xFE) | (bit & 1));
 }
@@ -16,17 +16,17 @@ static inline int get_bit(BYTE b) {
 bool EmbedLSB(BYTE* pixels, size_t size, const std::string& msg) {
     if (!pixels) return false;
 
-    // Buffer à écrire : MAGIC(4) + LEN(4, little endian) + DATA
+    // Buffer Ã  Ã©crire : MAGIC(4) + LEN(4, little endian) + DATA
     const uint32_t len = (uint32_t)msg.size();
     const size_t total = 4 + 4 + (size_t)len;
 
-    // Capacité en bits = nb_pixels * 3
+    // Capacitãƒ»en bits = nb_pixels * 3
     const size_t pixelsCount = size / 4;
     const size_t capacityBits = pixelsCount * 3;
     const size_t neededBits = total * 8ull;
     if (neededBits > capacityBits) return false;
 
-    // Écriture bit à bit
+    // ï¾‰criture bit ãƒ»bit
     size_t bitIndex = 0;
 
     auto writeByte = [&](BYTE v) {
@@ -82,7 +82,7 @@ std::string ExtractLSB(const BYTE* pixels, size_t size) {
     BYTE m[4];
     for (int i = 0; i < 4; ++i) m[i] = readByteAt(bitIndex);
     if (!(m[0] == MAGIC[0] && m[1] == MAGIC[1] && m[2] == MAGIC[2] && m[3] == MAGIC[3])) {
-        return out; // pas trouvé
+        return out; // pas trouvãƒ»
     }
 
     // Lire length (little endian)
@@ -92,7 +92,7 @@ std::string ExtractLSB(const BYTE* pixels, size_t size) {
     len |= (uint32_t)readByteAt(bitIndex) << 16;
     len |= (uint32_t)readByteAt(bitIndex) << 24;
 
-    // Sécurité : vérifier qu’on a la place
+    // SÃ©curitÃ© : vÃ©rifier quâ€™on a la place
     size_t neededBits = (size_t)len * 8ull;
     if (bitIndex + neededBits > capacityBits) return std::string();
 

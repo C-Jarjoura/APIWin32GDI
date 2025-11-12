@@ -1,8 +1,8 @@
-#include <windows.h>
+ï»¿#include <windows.h>
 #include "RendererGDI.h"
 
 // ============================================================
-// Fonction utilitaire : ajuste une image à la fenêtre
+// Fonction utilitaire : ajuste une image ãƒ»la fenÃªtre
 // tout en conservant son ratio largeur/hauteur
 // ============================================================
 static void FitRectKeepAspect(int imgW, int imgH, const RECT& dst, RECT& out)
@@ -16,7 +16,7 @@ static void FitRectKeepAspect(int imgW, int imgH, const RECT& dst, RECT& out)
         return;
     }
 
-    // Calcul du facteur d’échelle (le plus petit)
+    // Calcul du facteur d'Ã©chelle (le plus petit)
     double sx = (double)dstW / imgW;
     double sy = (double)dstH / imgH;
     double s = (sx < sy) ? sx : sy;
@@ -34,27 +34,38 @@ static void FitRectKeepAspect(int imgW, int imgH, const RECT& dst, RECT& out)
 
 // ============================================================
 // Fonction : RenderImage
-// Objectif : afficher un BMP 24/32 bits dans la fenêtre,
-//             ajusté à la taille tout en gardant le ratio
+// Objectif : afficher un BMP 24/32 bits dans la fenÃªtre,
+//             ajustãƒ»ãƒ»la taille tout en gardant le ratio
 // ============================================================
 void RenderImage(HDC hdc, BITMAPINFO* info32, BYTE* data32)
 {
     if (!hdc || !info32 || !data32)
         return;
 
-    // Taille de l’image source
+    // Taille de l'image source
     int imgW = info32->bmiHeader.biWidth;
     int imgH = abs(info32->bmiHeader.biHeight);
 
-    // Zone de dessin actuelle
+    // Get full client rect from the HDC's window (safer than GetClipBox
+    // which can return a partial region and leave previous content visible)
     RECT client;
-    GetClipBox(hdc, &client);
+    HWND hwnd = WindowFromDC(hdc);
+    if (hwnd)
+        GetClientRect(hwnd, &client);
+    else
+        GetClipBox(hdc, &client);
 
-    // Calcul du rectangle de destination ajusté
+    // Clear the background so there is no ghost/duplicate image left.
+    // Use the window background color (COLOR_WINDOW+1) to match the original.
+    HBRUSH hbr = (HBRUSH)(COLOR_WINDOW + 1);
+    // FillRect expects an HBRUSH handle; convert COLOR_* to brush with GetSysColorBrush.
+    FillRect(hdc, &client, GetSysColorBrush(COLOR_WINDOW));
+
+    // Calcul du rectangle de destination ajustãƒ»
     RECT dstRect;
     FitRectKeepAspect(imgW, imgH, client, dstRect);
 
-    // Affichage de l’image avec GDI
+    // Affichage de l'image avec GDI
     StretchDIBits(
         hdc,
         dstRect.left, dstRect.top,
@@ -69,4 +80,4 @@ void RenderImage(HDC hdc, BITMAPINFO* info32, BYTE* data32)
     );
 }
 
-// les fichiers enregistrer gardent leurs orientation mais les fichier telecharger jamais passer par l'api sont inversé
+// les fichiers enregistrer gardent leurs orientation mais les fichier telecharger jamais passer par l'api sont invers

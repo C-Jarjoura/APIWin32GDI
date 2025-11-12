@@ -1,4 +1,4 @@
-#include <windows.h>
+﻿#include <windows.h>
 #include <commdlg.h>
 #include "MainWindow.h"
 #include "ImageManager.h"
@@ -9,6 +9,35 @@
 static HINSTANCE g_hInstance = NULL;
 static BITMAPINFO* g_pInfo = NULL;
 static BYTE* g_pPixels = NULL;
+
+// Valeurs sauvegardées pour l'état de maximisation
+static bool g_isMaximized = false;
+static WINDOWPLACEMENT g_prevPlacement = { sizeof(WINDOWPLACEMENT) };
+
+// Basculer maximisation marche/arrêt (conserve la bordure et le menu de la fenêtre)
+static void ToggleMaximize(HWND hwnd)
+{
+    if (!hwnd) return;
+
+    if (!g_isMaximized)
+    {
+        // Sauvegarde la position/état actuel puis maximise
+        GetWindowPlacement(hwnd, &g_prevPlacement);
+        ShowWindow(hwnd, SW_MAXIMIZE);
+        g_isMaximized = true;
+    }
+    else
+    {
+        // Restaure la position/état précédents
+        SetWindowPlacement(hwnd, &g_prevPlacement);
+        ShowWindow(hwnd, SW_RESTORE);
+        g_isMaximized = false;
+    }
+
+    // Forcer un rafraîchissement complet pour éviter des visuels résiduels
+    // Utilise RedrawWindow pour forcer immédiatement l'effacement du fond
+    RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+}
 
 LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -27,6 +56,25 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
         break;
     }
 
+    case WM_ERASEBKGND:
+        // Nous gérons l'effacement de l'arrière-plan dans RenderImage (FillRect). Retourner une valeur non nulle
+        // empêche l'effacement par défaut qui peut parfois laisser des artefacts lors du redimensionnement/maximisation.
+        return 1;
+
+    case WM_SIZE:
+        // Forcer un redessin complet (effacement + peinture) lorsque la fenêtre change de taille,
+        // cela évite la petite image résiduelle/miniature en haut à gauche après la maximisation.
+        RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+        break;
+
+    case WM_KEYDOWN:
+        if (wParam == VK_F11)
+        {
+            ToggleMaximize(hwnd);
+            return 0;
+        }
+        break;
+
     case WM_COMMAND:
         switch (LOWORD(wParam))
         {
@@ -35,7 +83,7 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
             wchar_t fileName[MAX_PATH] = L"";
             ofn.lStructSize = sizeof(ofn);
             ofn.hwndOwner = hwnd;
-            ofn.lpstrFilter = L"Images BMP\0*.bmp\0";
+            ofn.lpstrFilter = L".bmp\0*.bmp\0";
             ofn.lpstrFile = fileName;
             ofn.nMaxFile = MAX_PATH;
             ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
@@ -48,8 +96,10 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
                     free(g_pInfo);
                     g_pInfo = NULL;
                 }
-                if (LoadBMP(fileName, g_pInfo, g_pPixels))
-                    InvalidateRect(hwnd, NULL, TRUE);
+                if (LoadBMP(fileName, g_pInfo, g_pPixels)) {
+                    // Forcer l'effacement complet pour que rien de l'ancien contenu ne subsiste
+                    RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+                }
                 else
                     MessageBox(hwnd, L"Erreur lors du chargement du BMP.", L"Erreur", MB_ICONERROR);
             }
@@ -58,7 +108,7 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
 
         case ID_FILE_SAVE: {
             if (!g_pPixels || !g_pInfo) {
-                MessageBox(hwnd, L"Aucune image � enregistrer.", L"Information", MB_ICONINFORMATION);
+                MessageBox(hwnd, L"Aucune image ・enregistrer.", L"Information", MB_ICONINFORMATION);
                 break;
             }
 
@@ -66,7 +116,7 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
             wchar_t fileName[MAX_PATH] = L"";
             ofn.lStructSize = sizeof(ofn);
             ofn.hwndOwner = hwnd;
-            ofn.lpstrFilter = L"Images BMP\0*.bmp\0";
+            ofn.lpstrFilter = L".bmp\0*.bmp\0";
             ofn.lpstrFile = fileName;
             ofn.nMaxFile = MAX_PATH;
             ofn.Flags = OFN_OVERWRITEPROMPT;
@@ -74,7 +124,7 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
 
             if (GetSaveFileName(&ofn)) {
                 if (SaveBMP(fileName, g_pPixels, g_pInfo))
-                    MessageBox(hwnd, L"Image enregistr�e avec succ�s !", L"Succ�s", MB_ICONINFORMATION);
+                    MessageBox(hwnd, L"Image enregistrée avec succès !", L"Succès", MB_ICONINFORMATION);
                 else
                     MessageBox(hwnd, L"Erreur lors de l'enregistrement du BMP.", L"Erreur", MB_ICONERROR);
             }
@@ -85,14 +135,14 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
             if (g_pPixels)
                 DialogEmbedMessage(hwnd, g_pPixels, g_pInfo);
             else
-                MessageBox(hwnd, L"Aucune image charg�e.", L"Erreur", MB_ICONERROR);
+                MessageBox(hwnd, L"Aucune image chargée.", L"Erreur", MB_ICONERROR);
             break;
 
         case ID_STEG_EXTRACT:
             if (g_pPixels)
                 DialogExtractMessage(hwnd, g_pPixels, g_pInfo);
             else
-                MessageBox(hwnd, L"Aucune image charg�e.", L"Erreur", MB_ICONERROR);
+                MessageBox(hwnd, L"Aucune image chargée.", L"Erreur", MB_ICONERROR);
             break;
 
         case ID_HELP_ABOUT:

@@ -22,7 +22,7 @@ BEGIN
 
     POPUP "Steganographie"
     BEGIN
-        MENUITEM "Integrer un message...", ID_STEG_EMBED
+        MENUITEM "Intégrer un message...", ID_STEG_EMBED
         MENUITEM "Extraire un message...", ID_STEG_EXTRACT
     END
 
@@ -39,10 +39,10 @@ END
 
 IDD_EMBED DIALOGEX 0, 0, 260, 160
 STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "Integrer un message"
+CAPTION "Intégrer un message"
 FONT 9, "Segoe UI"
 BEGIN
-    LTEXT       "Message a integrer :", -1, 8, 8, 120, 10
+    LTEXT       "Message a intégrer :", -1, 8, 8, 120, 10
     EDITTEXT    ID_EDIT_MESSAGE, 8, 22, 244, 96, ES_LEFT | ES_AUTOVSCROLL | ES_MULTILINE | WS_VSCROLL | WS_BORDER
     DEFPUSHBUTTON "OK",     IDOK,     116, 126, 60, 14
     PUSHBUTTON   "Annuler", IDCANCEL, 192, 126, 60, 14
@@ -56,7 +56,7 @@ STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "A propos"
 FONT 9, "Segoe UI"
 BEGIN
-LTEXT "Outil de steganographie BMP", -1, 10, 10, 200, 12
+LTEXT "Outil de stéganographie BMP", -1, 10, 10, 200, 12
 LTEXT "Developpe par :", -1, 10, 30, 200, 10
 LTEXT "JARJOURA Christophe - GTECH 1 (Gaming Campus 2025)", IDC_ABOUT_TEXT, 10, 42, 200, 10
 LTEXT "UWINEZA Job - GTECH 1 (Gaming Campus 2025)", IDC_ABOUT_TEXT, 10, 52, 200, 10

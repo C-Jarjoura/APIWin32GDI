@@ -1,4 +1,4 @@
-// RendererGDI.h
+﻿// RendererGDI.h
 #pragma once
 #include <windows.h>
 

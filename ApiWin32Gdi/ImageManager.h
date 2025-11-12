@@ -1,4 +1,4 @@
-// ImageManager.h
+﻿// ImageManager.h
 #pragma once
 #include <windows.h>
 
