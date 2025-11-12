@@ -128,10 +128,8 @@
     <ClInclude Include="ImageManager.h" />
     <ClInclude Include="MainWindow.h" />
     <ClInclude Include="RendererGDI.h" />
-    <ClInclude Include="Resource.h" />
-    <ClInclude Include="ressource.h" />
+    <ClInclude Include="resource.h" />
     <ClInclude Include="StegEngine.h" />
-    <ClInclude Include="targetver.h" />
     <ClInclude Include="UIDialogs.h" />
   </ItemGroup>
   <ItemGroup>
@@ -139,12 +137,11 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MainWindow.cpp" />
     <ClCompile Include="RendererGDI.cpp" />
-    <ClCompile Include="ressource.cpp" />
     <ClCompile Include="StegEngine.cpp" />
     <ClCompile Include="UIDialogs.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="ApiWin32Gdi.rc" />
+    <ResourceCompile Include="resource.rc" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="ApiWin32Gdi.ico" />
