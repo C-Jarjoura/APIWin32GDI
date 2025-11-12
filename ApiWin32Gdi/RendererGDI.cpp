@@ -1,42 +1,40 @@
-// RendererGDI.cpp
+#include <windows.h>
 #include "RendererGDI.h"
 
-static void FitRectKeepAspect(int imgW, int imgH, const RECT& dst, RECT& out) {
-    int dstW = dst.right - dst.left;
-    int dstH = dst.bottom - dst.top;
-    if (imgW <= 0 || imgH <= 0 || dstW <= 0 || dstH <= 0) { out = dst; return; }
+// ============================================================
+//  Fonction : RenderImage
+//  Objectif : Afficher une image BMP (24/32 bits) à l’écran
+// ============================================================
+void RenderImage(HDC hdc, BITMAPINFO* info, BYTE* pixels)
+{
+    if (!hdc || !info || !pixels)
+        return;
 
-    // scale to fit
-    double sx = (double)dstW / imgW;
-    double sy = (double)dstH / imgH;
-    double s = (sx < sy) ? sx : sy;
+    int width = info->bmiHeader.biWidth;
+    int height = abs(info->bmiHeader.biHeight);
+    int bpp = info->bmiHeader.biBitCount;
 
-    int w = (int)(imgW * s + 0.5);
-    int h = (int)(imgH * s + 0.5);
-    int x = dst.left + (dstW - w) / 2;
-    int y = dst.top + (dstH - h) / 2;
-    out = { x, y, x + w, y + h };
-}
+    // Récupère la taille de la zone cliente
+    RECT rc;
+    GetClientRect(WindowFromDC(hdc), &rc);
+    int clientWidth = rc.right - rc.left;
+    int clientHeight = rc.bottom - rc.top;
 
-void RenderImage(HDC hdc, BITMAPINFO* info32, BYTE* data32) {
-    if (!hdc || !info32 || !data32) return;
+    // Centre l’image dans la fenêtre
+    int x = (clientWidth - width) / 2;
+    int y = (clientHeight - height) / 2;
+    if (x < 0) x = 0;
+    if (y < 0) y = 0;
 
-    RECT client;
-    GetClipBox(hdc, &client); // zone à peindre
-
-    RECT dstRect;
-    FitRectKeepAspect(info32->bmiHeader.biWidth, abs(info32->bmiHeader.biHeight), client, dstRect);
-
+    // Affichage avec GDI
+    // BitBlt : copie directe (rapide, mais taille fixe)
+    // StretchDIBits : permet redimensionnement ou affichage partiel
     StretchDIBits(
         hdc,
-        dstRect.left, dstRect.top,
-        dstRect.right - dstRect.left,
-        dstRect.bottom - dstRect.top,
-        0, 0,
-        info32->bmiHeader.biWidth,
-        abs(info32->bmiHeader.biHeight),
-        data32,
-        info32,
+        x, y, width, height,         // destination
+        0, 0, width, height,         // source
+        pixels,
+        info,
         DIB_RGB_COLORS,
         SRCCOPY
     );

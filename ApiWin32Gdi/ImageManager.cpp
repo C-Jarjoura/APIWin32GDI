@@ -1,105 +1,136 @@
-﻿// ImageManager.cpp
-#include "ImageManager.h"
+﻿#define _CRT_SECURE_NO_WARNINGS
+#include <windows.h>
 #include <cstdio>
 #include <cstdlib>
+#include "ImageManager.h"
 
-
-#pragma pack(push, 1)
-struct BMPFILEHEADER_ {
-    WORD  bfType;      // 'BM' = 0x4D42
-    DWORD bfSize;
-    WORD  bfReserved1;
-    WORD  bfReserved2;
-    DWORD bfOffBits;
-};
-#pragma pack(pop)
-
-static inline size_t RowStride24(int width) {
-    // chaque ligne 24bpp est alignée sur 4 octets
-    size_t raw = (size_t)width * 3;
-    return (raw + 3u) & ~3u;
-}
-
+// ============================================================
+//  Fonction : LoadBMP
+//  Objectif : Charger une image BMP 24 ou 32 bits en mémoire
+// ============================================================
 bool LoadBMP(const wchar_t* filename, BITMAPINFO*& info, BYTE*& data)
 {
     FILE* f = nullptr;
     _wfopen_s(&f, filename, L"rb");
-    if (!f) return false;
-
-    if (!f) return false;
+    if (!f)
+    {
+        MessageBox(NULL, L"Impossible d'ouvrir le fichier BMP.", L"Erreur", MB_ICONERROR);
+        return false;
+    }
 
     BITMAPFILEHEADER fileHeader;
     fread(&fileHeader, sizeof(fileHeader), 1, f);
 
+    if (fileHeader.bfType != 0x4D42) // "BM"
+    {
+        fclose(f);
+        MessageBox(NULL, L"Ce fichier n'est pas un BMP valide.", L"Erreur", MB_ICONERROR);
+        return false;
+    }
+
     BITMAPINFOHEADER infoHeader;
     fread(&infoHeader, sizeof(infoHeader), 1, f);
 
-    // Allocation du buffer image
+    // Lecture uniquement des BMP non compressés (BI_RGB)
+    if (infoHeader.biCompression != BI_RGB)
+    {
+        fclose(f);
+        MessageBox(NULL, L"Seuls les BMP non compressés sont supportés.", L"Erreur", MB_ICONERROR);
+        return false;
+    }
+
+    // Allocation de la structure BITMAPINFO
     info = (BITMAPINFO*)malloc(sizeof(BITMAPINFOHEADER));
     memcpy(&info->bmiHeader, &infoHeader, sizeof(BITMAPINFOHEADER));
 
-    int imageSize = infoHeader.biSizeImage;
-    if (imageSize == 0)
-        imageSize = infoHeader.biWidth * abs(infoHeader.biHeight) * 3;
+    // Taille de l'image en octets
+    int width = infoHeader.biWidth;
+    int height = abs(infoHeader.biHeight);
+    int bpp = infoHeader.biBitCount;
+    int bytesPerPixel = (bpp == 32) ? 4 : 3;
 
-    data = new BYTE[imageSize];
-    fread(data, 1, imageSize, f);
+    int dataSize = width * height * bytesPerPixel;
+    data = new BYTE[dataSize];
+
+    // Aller à la position du bitmap
+    fseek(f, fileHeader.bfOffBits, SEEK_SET);
+    fread(data, 1, dataSize, f);
     fclose(f);
+
+    // BMP bottom-up → inversion de la hauteur
+    if (info->bmiHeader.biHeight > 0)
+        info->bmiHeader.biHeight = -info->bmiHeader.biHeight;
 
     return true;
 }
 
+// ============================================================
+//  Fonction : SaveBMP
+//  Objectif : Sauvegarder une image BMP 24 bits conforme
+// ============================================================
+bool SaveBMP(const wchar_t* filename, BYTE* data, BITMAPINFO* info)
+{
+    if (!data || !info) return false;
 
-bool SaveBMP(const wchar_t* filename, const BITMAPINFO* info32, const BYTE* data32) {
-    if (!info32 || !data32) return false;
-    const int width = info32->bmiHeader.biWidth;
-    const int height = info32->bmiHeader.biHeight; // bottom-up (positif)
-    const int absH = height < 0 ? -height : height;
+    int width = info->bmiHeader.biWidth;
+    int height = abs(info->bmiHeader.biHeight);
+    int bpp = info->bmiHeader.biBitCount;
+    bool is32bpp = (bpp == 32);
 
-    // On enregistre en 24 bpp (BGR) bottom-up
-    size_t stride24 = RowStride24(width);
-    size_t pixelDataSize = stride24 * absH;
-
-    BMPFILEHEADER_ bf{};
-    bf.bfType = 0x4D42;
-    bf.bfOffBits = sizeof(BMPFILEHEADER_) + sizeof(BITMAPINFOHEADER);
-    bf.bfSize = bf.bfOffBits + (DWORD)pixelDataSize;
-
-    BITMAPINFOHEADER bih{};
-    bih.biSize = sizeof(BITMAPINFOHEADER);
-    bih.biWidth = width;
-    bih.biHeight = absH; // bottom-up
-    bih.biPlanes = 1;
-    bih.biBitCount = 24;
-    bih.biCompression = BI_RGB;
-    bih.biSizeImage = (DWORD)pixelDataSize;
-
-    FILE* f = nullptr;
-_wfopen_s(&f, filename, L"wb");
-
-    if (!f) return false;
-
-    bool ok = true;
-    ok = ok && fwrite(&bf, sizeof(bf), 1, f) == 1;
-    ok = ok && fwrite(&bih, sizeof(bih), 1, f) == 1;
-
-    BYTE* line = (BYTE*)malloc(stride24);
-    if (!line) { fclose(f); return false; }
-
-    for (int y = 0; y < absH && ok; ++y) {
-        const BYTE* srcLine = data32 + (size_t)(absH - 1 - y) * width * 4; // écrire bottom-up
-        // convertir BGRA -> BGR + padding
-        for (int x = 0; x < width; ++x) {
-            line[x * 3 + 0] = srcLine[x * 4 + 0]; // B
-            line[x * 3 + 1] = srcLine[x * 4 + 1]; // G
-            line[x * 3 + 2] = srcLine[x * 4 + 2]; // R
-        }
-        // padding zéro
-        for (size_t pad = (size_t)width * 3; pad < stride24; ++pad) line[pad] = 0;
-        ok = ok && fwrite(line, 1, stride24, f) == stride24;
+    // Vérification de la compatibilité
+    if (bpp != 24 && bpp != 32)
+    {
+        MessageBox(NULL, L"Format non supporté : seules les images 24 ou 32 bits sont autorisées.", L"Erreur", MB_ICONERROR);
+        return false;
     }
 
-    free(line);
+    // === Étape 1 : Préparer les headers ===
+    BITMAPFILEHEADER fileHeader = {};
+    BITMAPINFOHEADER infoHeader = info->bmiHeader;
+
+    infoHeader.biCompression = BI_RGB;
+    infoHeader.biSizeImage = 0;
+
+    int stride = ((width * 3 + 3) & ~3); // padding à 4 octets
+    DWORD pixelDataSize = stride * height;
+    DWORD fileSize = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER) + pixelDataSize;
+
+    fileHeader.bfType = 0x4D42; // "BM"
+    fileHeader.bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
+    fileHeader.bfSize = fileSize;
+
+    // === Étape 2 : Ouverture du fichier ===
+    FILE* f = nullptr;
+    _wfopen_s(&f, filename, L"wb");
+    if (!f)
+    {
+        MessageBox(NULL, L"Impossible de créer le fichier BMP.", L"Erreur", MB_ICONERROR);
+        return false;
+    }
+
+    fwrite(&fileHeader, sizeof(fileHeader), 1, f);
+    fwrite(&infoHeader, sizeof(infoHeader), 1, f);
+
+    // === Étape 3 : Écriture des pixels (BGR + padding) ===
+    BYTE* line = new BYTE[stride];
+    memset(line, 0, stride);
+
+    for (int y = 0; y < height; ++y)
+    {
+        const BYTE* srcLine = data + (size_t)y * width * (is32bpp ? 4 : 3);
+
+        for (int x = 0; x < width; ++x)
+        {
+            int srcOffset = x * (is32bpp ? 4 : 3);
+            line[x * 3 + 0] = srcLine[srcOffset + 0]; // B
+            line[x * 3 + 1] = srcLine[srcOffset + 1]; // G
+            line[x * 3 + 2] = srcLine[srcOffset + 2]; // R
+        }
+
+        fwrite(line, 1, stride, f);
+    }
+
+    delete[] line;
     fclose(f);
-    return ok;
+    return true;
 }
