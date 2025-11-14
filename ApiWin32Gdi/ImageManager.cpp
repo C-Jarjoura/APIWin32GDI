@@ -1,7 +1,5 @@
 ﻿#define _CRT_SECURE_NO_WARNINGS
 #include <windows.h>
-#include <cstdio>
-#include <cstdlib>
 #include "ImageManager.h"
 
 // ============================================================
@@ -9,30 +7,39 @@
 // ============================================================
 bool LoadBMP(const wchar_t* filename, BITMAPINFO*& info, BYTE*& data)
 {
-    FILE* f = nullptr;
-    _wfopen_s(&f, filename, L"rb");
-    if (!f)
+    HANDLE hFile = CreateFileW(
+        filename,
+        GENERIC_READ,
+        FILE_SHARE_READ,
+        NULL,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL
+    );
+
+    if (hFile == INVALID_HANDLE_VALUE)
     {
         MessageBox(NULL, L"Impossible d'ouvrir le fichier BMP.", L"Erreur", MB_ICONERROR);
         return false;
     }
 
+    DWORD bytesRead = 0;
     BITMAPFILEHEADER fileHeader;
-    fread(&fileHeader, sizeof(fileHeader), 1, f);
+    ReadFile(hFile, &fileHeader, sizeof(fileHeader), &bytesRead, NULL);
 
-    if (fileHeader.bfType != 0x4D42) // "BM"
+    if (fileHeader.bfType != 0x4D42)
     {
-        fclose(f);
+        CloseHandle(hFile);
         MessageBox(NULL, L"Ce fichier n'est pas un BMP valide.", L"Erreur", MB_ICONERROR);
         return false;
     }
 
     BITMAPINFOHEADER infoHeader;
-    fread(&infoHeader, sizeof(infoHeader), 1, f);
+    ReadFile(hFile, &infoHeader, sizeof(infoHeader), &bytesRead, NULL);
 
     if (infoHeader.biCompression != BI_RGB)
     {
-        fclose(f);
+        CloseHandle(hFile);
         MessageBox(NULL, L"Seuls les BMP non compressés sont supportés.", L"Erreur", MB_ICONERROR);
         return false;
     }
@@ -41,109 +48,105 @@ bool LoadBMP(const wchar_t* filename, BITMAPINFO*& info, BYTE*& data)
     int height = abs(infoHeader.biHeight);
     int bpp = infoHeader.biBitCount;
 
-    int srcBytesPerPixel = (bpp == 32) ? 4 : 3;
+    int srcBytesPerPixel = (bpp == 32 ? 4 : 3);
     int srcStride = (width * srcBytesPerPixel + 3) & ~3;
     int srcSize = srcStride * height;
 
-    // Lecture des pixels bruts
     BYTE* srcData = new BYTE[srcSize];
 
-    fseek(f, fileHeader.bfOffBits, SEEK_SET);
-    fread(srcData, 1, srcSize, f);
-    fclose(f);
+    // Positionner le curseur sur les pixels
+    SetFilePointer(hFile, fileHeader.bfOffBits, NULL, FILE_BEGIN);
 
-    // Création d’un DIB 32 bits TOP-DOWN
+    ReadFile(hFile, srcData, srcSize, &bytesRead, NULL);
+    CloseHandle(hFile);
+
+    // Création DIB 32 bits BGRA top-down
     info = (BITMAPINFO*)malloc(sizeof(BITMAPINFOHEADER));
     ZeroMemory(info, sizeof(BITMAPINFOHEADER));
 
     info->bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
     info->bmiHeader.biWidth = width;
-    info->bmiHeader.biHeight = -height;      // TOP-DOWN
+    info->bmiHeader.biHeight = -height;
     info->bmiHeader.biPlanes = 1;
     info->bmiHeader.biBitCount = 32;
     info->bmiHeader.biCompression = BI_RGB;
     info->bmiHeader.biSizeImage = width * 4 * height;
-    info->bmiHeader.biXPelsPerMeter = infoHeader.biXPelsPerMeter;
-    info->bmiHeader.biYPelsPerMeter = infoHeader.biYPelsPerMeter;
 
     data = new BYTE[info->bmiHeader.biSizeImage];
 
-    // Conversion vers BGRA 32 bits + top-down
-    for (int y = 0; y < height; ++y)
+    // Conversion BGR -> BGRA + inversion éventuelle
+    for (int y = 0; y < height; y++)
     {
-        int srcY = (infoHeader.biHeight > 0) ? (height - 1 - y) : y; // inversion si bottom-up
-
+        int srcY = (infoHeader.biHeight > 0) ? (height - 1 - y) : y;
         BYTE* srcRow = srcData + srcY * srcStride;
         BYTE* dstRow = data + y * width * 4;
 
         if (bpp == 32)
         {
-            // Copie directe BGRA
             memcpy(dstRow, srcRow, width * 4);
         }
         else
         {
-            // Conversion 24 -> 32 BGRA
-            for (int x = 0; x < width; ++x)
+            for (int x = 0; x < width; x++)
             {
-                BYTE b = srcRow[x * 3 + 0];
-                BYTE g = srcRow[x * 3 + 1];
-                BYTE r = srcRow[x * 3 + 2];
-
-                dstRow[x * 4 + 0] = b;
-                dstRow[x * 4 + 1] = g;
-                dstRow[x * 4 + 2] = r;
-                dstRow[x * 4 + 3] = 0xFF; // opaque
+                dstRow[x * 4 + 0] = srcRow[x * 3 + 0];
+                dstRow[x * 4 + 1] = srcRow[x * 3 + 1];
+                dstRow[x * 4 + 2] = srcRow[x * 3 + 2];
+                dstRow[x * 4 + 3] = 0xFF;
             }
         }
     }
 
     delete[] srcData;
-
     return true;
 }
 
 // ============================================================
-//  SaveBMP : sauvegarde un DIB BGRA top-down au format BMP
+//  SaveBMP : sauvegarde un DIB BGRA top-down en BMP
 // ============================================================
 bool SaveBMP(const wchar_t* filename, BYTE* data, BITMAPINFO* info)
 {
-    if (!data || !info) return false;
+    if (!data || !info)
+        return false;
+
+    HANDLE hFile = CreateFileW(
+        filename,
+        GENERIC_WRITE,
+        0,
+        NULL,
+        CREATE_ALWAYS,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL
+    );
+
+    if (hFile == INVALID_HANDLE_VALUE)
+    {
+        MessageBox(NULL, L"Impossible d'écrire le fichier BMP.", L"Erreur", MB_ICONERROR);
+        return false;
+    }
+
+    DWORD bytesWritten = 0;
 
     int width = info->bmiHeader.biWidth;
     int height = abs(info->bmiHeader.biHeight);
-    int bpp = info->bmiHeader.biBitCount;
 
-    bool is32bpp = (bpp == 32);
-    int bytesPerPixel = is32bpp ? 4 : 3;
-
-    int stride = (width * bytesPerPixel + 3) & ~3;
+    int stride = (width * 4 + 3) & ~3;
     DWORD pixelDataSize = stride * height;
 
     BITMAPFILEHEADER fileHeader = {};
     BITMAPINFOHEADER hdr = info->bmiHeader;
-    hdr.biCompression = BI_RGB;
-    hdr.biHeight = -height; // garder top-down
 
-    DWORD fileSize = sizeof(fileHeader) + sizeof(hdr) + pixelDataSize;
+    hdr.biHeight = -height;
+    hdr.biCompression = BI_RGB;
 
     fileHeader.bfType = 0x4D42;
     fileHeader.bfOffBits = sizeof(fileHeader) + sizeof(hdr);
-    fileHeader.bfSize = fileSize;
+    fileHeader.bfSize = fileHeader.bfOffBits + pixelDataSize;
 
-    FILE* f = nullptr;
-    _wfopen_s(&f, filename, L"wb");
-    if (!f)
-    {
-        MessageBox(NULL, L"Impossible d'écrire le BMP.", L"Erreur", MB_ICONERROR);
-        return false;
-    }
+    WriteFile(hFile, &fileHeader, sizeof(fileHeader), &bytesWritten, NULL);
+    WriteFile(hFile, &hdr, sizeof(hdr), &bytesWritten, NULL);
+    WriteFile(hFile, data, pixelDataSize, &bytesWritten, NULL);
 
-    fwrite(&fileHeader, sizeof(fileHeader), 1, f);
-    fwrite(&hdr, sizeof(hdr), 1, f);
-
-    fwrite(data, 1, pixelDataSize, f);
-
-    fclose(f);
+    CloseHandle(hFile);
     return true;
 }
