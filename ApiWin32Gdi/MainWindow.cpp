@@ -10,32 +10,29 @@ static HINSTANCE g_hInstance = NULL;
 static BITMAPINFO* g_pInfo = NULL;
 static BYTE* g_pPixels = NULL;
 
-// Valeurs sauvegardées pour l'état de maximisation
 static bool g_isMaximized = false;
 static WINDOWPLACEMENT g_prevPlacement = { sizeof(WINDOWPLACEMENT) };
 
-// Basculer maximisation marche/arrêt (conserve la bordure et le menu de la fenêtre)
+static bool g_zoomed = false;
+static double const ZOOM_FACTOR = 2.0; // Un seul niveau de zoom ×2
+static int g_zoomCenterX = -1, g_zoomCenterY = -1;
+
 static void ToggleMaximize(HWND hwnd)
 {
     if (!hwnd) return;
 
     if (!g_isMaximized)
     {
-        // Sauvegarde la position/état actuel puis maximise
         GetWindowPlacement(hwnd, &g_prevPlacement);
         ShowWindow(hwnd, SW_MAXIMIZE);
         g_isMaximized = true;
     }
     else
     {
-        // Restaure la position/état précédents
         SetWindowPlacement(hwnd, &g_prevPlacement);
         ShowWindow(hwnd, SW_RESTORE);
         g_isMaximized = false;
     }
-
-    // Forcer un rafraîchissement complet pour éviter des visuels résiduels
-    // Utilise RedrawWindow pour forcer immédiatement l'effacement du fond
     RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
 }
 
@@ -43,6 +40,21 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
 {
     switch (uMsg)
     {
+    case WM_RBUTTONDOWN: {
+        if (!g_zoomed) {
+            g_zoomed = true;
+            g_zoomCenterX = LOWORD(lParam);
+            g_zoomCenterY = HIWORD(lParam);
+        }
+        else {
+            g_zoomed = false;
+            g_zoomCenterX = -1;
+            g_zoomCenterY = -1;
+        }
+        InvalidateRect(hwnd, NULL, TRUE);
+        return 0;
+    }
+
     case WM_CREATE:
         g_hInstance = ((LPCREATESTRUCT)lParam)->hInstance;
         break;
@@ -50,20 +62,22 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
     case WM_PAINT: {
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
-        if (g_pPixels)
-            RenderImage(hdc, g_pInfo, g_pPixels);
+        if (g_pPixels) {
+            if (g_zoomed) {
+                RenderImage(hdc, g_pInfo, g_pPixels, ZOOM_FACTOR, g_zoomCenterX, g_zoomCenterY);
+            }
+            else {
+                RenderImage(hdc, g_pInfo, g_pPixels, 1.0);
+            }
+        }
         EndPaint(hwnd, &ps);
         break;
     }
 
     case WM_ERASEBKGND:
-        // Nous gérons l'effacement de l'arrière-plan dans RenderImage (FillRect). Retourner une valeur non nulle
-        // empêche l'effacement par défaut qui peut parfois laisser des artefacts lors du redimensionnement/maximisation.
         return 1;
 
     case WM_SIZE:
-        // Forcer un redessin complet (effacement + peinture) lorsque la fenêtre change de taille,
-        // cela évite la petite image résiduelle/miniature en haut à gauche après la maximisation.
         RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
         break;
 
@@ -97,7 +111,9 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
                     g_pInfo = NULL;
                 }
                 if (LoadBMP(fileName, g_pInfo, g_pPixels)) {
-                    // Forcer l'effacement complet pour que rien de l'ancien contenu ne subsiste
+                    g_zoomed = false;
+                    g_zoomCenterX = -1;
+                    g_zoomCenterY = -1;
                     RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
                 }
                 else
