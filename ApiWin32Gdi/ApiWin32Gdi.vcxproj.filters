@@ -21,9 +21,6 @@
     <ClInclude Include="resource.h">
       <Filter>Fichiers d%27en-tête</Filter>
     </ClInclude>
-    <ClInclude Include="ApiWin32Gdi.h">
-      <Filter>Fichiers d%27en-tête</Filter>
-    </ClInclude>
     <ClInclude Include="MainWindow.h">
       <Filter>Fichiers d%27en-tête</Filter>
     </ClInclude>

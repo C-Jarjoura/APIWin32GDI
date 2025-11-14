@@ -5,8 +5,7 @@
 #include "ImageManager.h"
 
 // ============================================================
-//  Fonction : LoadBMP
-//  Objectif : Charger un BMP 24 ou 32 bits, le convertir en top-down
+//  LoadBMP : charge BMP 24/32 bits et convertit en DIB 32 bits BGRA top-down
 // ============================================================
 bool LoadBMP(const wchar_t* filename, BITMAPINFO*& info, BYTE*& data)
 {
@@ -41,42 +40,71 @@ bool LoadBMP(const wchar_t* filename, BITMAPINFO*& info, BYTE*& data)
     int width = infoHeader.biWidth;
     int height = abs(infoHeader.biHeight);
     int bpp = infoHeader.biBitCount;
-    int bytesPerPixel = (bpp == 32) ? 4 : 3;
-    int stride = ((width * bytesPerPixel + 3) & ~3);
-    int dataSize = stride * height;
 
-    // Allocation
-    info = (BITMAPINFO*)malloc(sizeof(BITMAPINFOHEADER));
-    memcpy(&info->bmiHeader, &infoHeader, sizeof(BITMAPINFOHEADER));
-    data = new BYTE[dataSize];
+    int srcBytesPerPixel = (bpp == 32) ? 4 : 3;
+    int srcStride = (width * srcBytesPerPixel + 3) & ~3;
+    int srcSize = srcStride * height;
+
+    // Lecture des pixels bruts
+    BYTE* srcData = new BYTE[srcSize];
 
     fseek(f, fileHeader.bfOffBits, SEEK_SET);
-    fread(data, 1, dataSize, f);
+    fread(srcData, 1, srcSize, f);
     fclose(f);
 
-    // === Conversion vers top-down si nécessaire ===
-    if (infoHeader.biHeight > 0)
+    // Création d’un DIB 32 bits TOP-DOWN
+    info = (BITMAPINFO*)malloc(sizeof(BITMAPINFOHEADER));
+    ZeroMemory(info, sizeof(BITMAPINFOHEADER));
+
+    info->bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    info->bmiHeader.biWidth = width;
+    info->bmiHeader.biHeight = -height;      // TOP-DOWN
+    info->bmiHeader.biPlanes = 1;
+    info->bmiHeader.biBitCount = 32;
+    info->bmiHeader.biCompression = BI_RGB;
+    info->bmiHeader.biSizeImage = width * 4 * height;
+    info->bmiHeader.biXPelsPerMeter = infoHeader.biXPelsPerMeter;
+    info->bmiHeader.biYPelsPerMeter = infoHeader.biYPelsPerMeter;
+
+    data = new BYTE[info->bmiHeader.biSizeImage];
+
+    // Conversion vers BGRA 32 bits + top-down
+    for (int y = 0; y < height; ++y)
     {
-        BYTE* flipped = new BYTE[dataSize];
-        for (int y = 0; y < height; ++y)
+        int srcY = (infoHeader.biHeight > 0) ? (height - 1 - y) : y; // inversion si bottom-up
+
+        BYTE* srcRow = srcData + srcY * srcStride;
+        BYTE* dstRow = data + y * width * 4;
+
+        if (bpp == 32)
         {
-            memcpy(flipped + y * stride, data + (height - 1 - y) * stride, stride);
+            // Copie directe BGRA
+            memcpy(dstRow, srcRow, width * 4);
         }
-        delete[] data;
-        data = flipped;
-        info->bmiHeader.biHeight = -height; // top-down
+        else
+        {
+            // Conversion 24 -> 32 BGRA
+            for (int x = 0; x < width; ++x)
+            {
+                BYTE b = srcRow[x * 3 + 0];
+                BYTE g = srcRow[x * 3 + 1];
+                BYTE r = srcRow[x * 3 + 2];
+
+                dstRow[x * 4 + 0] = b;
+                dstRow[x * 4 + 1] = g;
+                dstRow[x * 4 + 2] = r;
+                dstRow[x * 4 + 3] = 0xFF; // opaque
+            }
+        }
     }
-    else
-    {
-        info->bmiHeader.biHeight = -height; // déjà top-down
-    }
+
+    delete[] srcData;
 
     return true;
 }
 
 // ============================================================
-//  Fonction : SaveBMP
-//  Objectif : Sauvegarder un BMP dans le même sens que la mémoire (top-down)
+//  SaveBMP : sauvegarde un DIB BGRA top-down au format BMP
 // ============================================================
 bool SaveBMP(const wchar_t* filename, BYTE* data, BITMAPINFO* info)
 {
@@ -85,33 +113,37 @@ bool SaveBMP(const wchar_t* filename, BYTE* data, BITMAPINFO* info)
     int width = info->bmiHeader.biWidth;
     int height = abs(info->bmiHeader.biHeight);
     int bpp = info->bmiHeader.biBitCount;
+
     bool is32bpp = (bpp == 32);
     int bytesPerPixel = is32bpp ? 4 : 3;
-    int stride = ((width * bytesPerPixel + 3) & ~3);
+
+    int stride = (width * bytesPerPixel + 3) & ~3;
     DWORD pixelDataSize = stride * height;
 
     BITMAPFILEHEADER fileHeader = {};
-    BITMAPINFOHEADER infoHeader = info->bmiHeader;
-    infoHeader.biCompression = BI_RGB;
-    infoHeader.biHeight = -height; // on garde top-down
+    BITMAPINFOHEADER hdr = info->bmiHeader;
+    hdr.biCompression = BI_RGB;
+    hdr.biHeight = -height; // garder top-down
 
-    DWORD fileSize = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER) + pixelDataSize;
-    fileHeader.bfType = 0x4D42; // "BM"
-    fileHeader.bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
+    DWORD fileSize = sizeof(fileHeader) + sizeof(hdr) + pixelDataSize;
+
+    fileHeader.bfType = 0x4D42;
+    fileHeader.bfOffBits = sizeof(fileHeader) + sizeof(hdr);
     fileHeader.bfSize = fileSize;
 
     FILE* f = nullptr;
     _wfopen_s(&f, filename, L"wb");
     if (!f)
     {
-        MessageBox(NULL, L"Impossible de créer le fichier BMP.", L"Erreur", MB_ICONERROR);
+        MessageBox(NULL, L"Impossible d'écrire le BMP.", L"Erreur", MB_ICONERROR);
         return false;
     }
 
     fwrite(&fileHeader, sizeof(fileHeader), 1, f);
-    fwrite(&infoHeader, sizeof(infoHeader), 1, f);
-    fwrite(data, 1, pixelDataSize, f);
-    fclose(f);
+    fwrite(&hdr, sizeof(hdr), 1, f);
 
+    fwrite(data, 1, pixelDataSize, f);
+
+    fclose(f);
     return true;
 }
