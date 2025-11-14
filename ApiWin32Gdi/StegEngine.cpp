@@ -1,5 +1,4 @@
-﻿// StegEngine.cpp
-#include "StegEngine.h"
+﻿#include "StegEngine.h"
 #include <cstring>
 
 static const BYTE MAGIC[4] = { 'S','T','E','G' };

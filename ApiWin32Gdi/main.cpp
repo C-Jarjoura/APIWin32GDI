@@ -2,7 +2,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include <windows.h>
 #include "MainWindow.h"
-#include "resource.h"   // 👈 Nécessaire pour IDI_MAIN_ICON et IDR_MAINMENU
+#include "resource.h"   
 
 // ----------------------------------------------------
 // Point d’entrée principal de l’application Win32

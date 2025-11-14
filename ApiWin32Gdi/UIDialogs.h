@@ -5,4 +5,4 @@
 
 void DialogEmbedMessage(HWND hwnd, BYTE* pixels, BITMAPINFO* info);
 void DialogExtractMessage(HWND hwnd, BYTE* pixels, BITMAPINFO* info);
-void ShowAboutDialog(HWND hwnd);  // 👈 Ajout ici
+void ShowAboutDialog(HWND hwnd);  

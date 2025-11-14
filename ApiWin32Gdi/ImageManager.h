@@ -1,5 +1,4 @@
-﻿// ImageManager.h
-#pragma once
+﻿#pragma once
 #include <windows.h>
 
 bool LoadBMP(const wchar_t* filename, BITMAPINFO*& info, BYTE*& data);

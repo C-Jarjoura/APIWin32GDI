@@ -1,5 +1,4 @@
-﻿// UIDialogs.cpp
-#include "UIDialogs.h"
+﻿#include "UIDialogs.h"
 #include <commdlg.h>
 #include <string>
 
