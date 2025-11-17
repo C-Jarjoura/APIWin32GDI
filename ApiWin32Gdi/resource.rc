@@ -54,7 +54,7 @@ END
 IDD_ABOUT DIALOGEX 0, 0, 220, 130
 STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "A propos"
-FONT 9, "Segoe UI"
+FONT 15, "Segoe UI"
 BEGIN
 LTEXT "Outil de steganographie BMP", -1, 10, 10, 200, 12
 LTEXT "Developpe par :", -1, 10, 30, 200, 10
