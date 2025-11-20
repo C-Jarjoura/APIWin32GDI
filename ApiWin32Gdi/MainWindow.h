@@ -10,4 +10,5 @@
 #define ID_HELP_ABOUT       301
 #define IDR_MAINMENU        400
 
+// Procédure principale de la fenêtre
 LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);

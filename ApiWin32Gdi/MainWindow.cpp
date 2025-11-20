@@ -6,15 +6,18 @@
 #include "StegEngine.h"
 #include "UIDialogs.h"
 
+// Variables globales simples pour l'état de la fenêtre et l'image chargée.
 static HINSTANCE g_hInstance = NULL;
 static BITMAPINFO* g_pInfo = NULL;
 static BYTE* g_pPixels = NULL;
 
-// Valeurs sauvegardées pour l'état de maximisation
+// Sauvegarde de l'état pour la maximisation/restauration
 static bool g_isMaximized = false;
 static WINDOWPLACEMENT g_prevPlacement = { sizeof(WINDOWPLACEMENT) };
 
-// Basculer maximisation marche/arrêt (conserve la bordure et le menu de la fenêtre)
+// Basculer maximisation marche/arrêt (conserve la bordure et le menu)
+// Principe : on sauvegarde la WINDOWPLACEMENT courant puis ShowWindow(SW_MAXIMIZE).
+// Pour restaurer, on réapplique la WINDOWPLACEMENT sauvegardée.
 static void ToggleMaximize(HWND hwnd)
 {
     if (!hwnd) return;
@@ -35,19 +38,21 @@ static void ToggleMaximize(HWND hwnd)
     }
 
     // Forcer un rafraîchissement complet pour éviter des visuels résiduels
-    // Utilise RedrawWindow pour forcer immédiatement l'effacement du fond
     RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
 }
 
+// Procédure principale de la fenêtre
 LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {
     case WM_CREATE:
+        // Récupération de hInstance à partir de la structure CREATESTRUCT
         g_hInstance = ((LPCREATESTRUCT)lParam)->hInstance;
         break;
 
     case WM_PAINT: {
+        // Peinture de la fenêtre : on appelle RenderImage si on a des pixels à afficher.
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
         if (g_pPixels)
@@ -57,17 +62,17 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
     }
 
     case WM_ERASEBKGND:
-        // Nous gérons l'effacement de l'arrière-plan dans RenderImage (FillRect). Retourner une valeur non nulle
-        // empêche l'effacement par défaut qui peut parfois laisser des artefacts lors du redimensionnement/maximisation.
+        // Nous gérons l'effacement du fond dans RenderImage (FillRect). Retourner une valeur non nulle
+        // empêche l'effacement par défaut qui peut laisser des artefacts lors du redimensionnement.
         return 1;
 
     case WM_SIZE:
-        // Forcer un redessin complet (effacement + peinture) lorsque la fenêtre change de taille,
-        // cela évite la petite image résiduelle/miniature en haut à gauche après la maximisation.
+        // Forcer un redessin complet (effacement + peinture) lors du redimensionnement
         RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
         break;
 
     case WM_KEYDOWN:
+        // F11 pour basculer maximisation/restauration
         if (wParam == VK_F11)
         {
             ToggleMaximize(hwnd);
@@ -76,9 +81,11 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
         break;
 
     case WM_COMMAND:
+        // Gestion des commandes menu
         switch (LOWORD(wParam))
         {
         case ID_FILE_OPEN: {
+            // Ouvrir un fichier BMP via la boîte standard
             OPENFILENAME ofn = {};
             wchar_t fileName[MAX_PATH] = L"";
             ofn.lStructSize = sizeof(ofn);
@@ -88,6 +95,7 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
             ofn.nMaxFile = MAX_PATH;
             ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
             if (GetOpenFileName(&ofn)) {
+                // Libérer éventuellement l'ancienne image (attention : on supprime avant d'essayer de charger)
                 if (g_pPixels) {
                     delete[] g_pPixels;
                     g_pPixels = NULL;
@@ -96,8 +104,9 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
                     free(g_pInfo);
                     g_pInfo = NULL;
                 }
+                // Charger la nouvelle image
                 if (LoadBMP(fileName, g_pInfo, g_pPixels)) {
-                    // Forcer l'effacement complet pour que rien de l'ancien contenu ne subsiste
+                    // Forcer effacement complet du client pour afficher la nouvelle image proprement
                     RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN);
                 }
                 else
@@ -107,8 +116,9 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
         }
 
         case ID_FILE_SAVE: {
+            // Sauvegarder l'image courante (si existe)
             if (!g_pPixels || !g_pInfo) {
-                MessageBox(hwnd, L"Aucune image ・enregistrer.", L"Information", MB_ICONINFORMATION);
+                MessageBox(hwnd, L"Aucune image à enregistrer.", L"Information", MB_ICONINFORMATION);
                 break;
             }
 
@@ -132,6 +142,7 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
         }
 
         case ID_STEG_EMBED:
+            // Intégrer un message dans l'image (si image chargée)
             if (g_pPixels)
                 DialogEmbedMessage(hwnd, g_pPixels, g_pInfo);
             else
@@ -139,6 +150,7 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
             break;
 
         case ID_STEG_EXTRACT:
+            // Extraire et afficher le message (si image chargée)
             if (g_pPixels)
                 DialogExtractMessage(hwnd, g_pPixels, g_pInfo);
             else
@@ -156,6 +168,7 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
         break;
 
     case WM_DESTROY:
+        // Libération des ressources lors de la fermeture
         if (g_pPixels) {
             delete[] g_pPixels;
             g_pPixels = NULL;

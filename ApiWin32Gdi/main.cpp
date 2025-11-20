@@ -7,7 +7,11 @@
 // ----------------------------------------------------
 // Point d’entrée principal de l’application Win32
 // ----------------------------------------------------
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
+int WINAPI wWinMain(
+    _In_ HINSTANCE hInstance,
+    _In_opt_ HINSTANCE hPrevInstance,
+    _In_ LPWSTR lpCmdLine,
+    _In_ int nCmdShow)
 {
     // Définition de la classe de fenêtre principale
     WNDCLASS wc = {};
@@ -16,6 +20,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
     wc.lpszClassName = L"StegToolMainWindow";
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
     wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+
+    // Chargement de l'icône principale depuis les ressources (ID défini dans Resource.h)
     wc.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_MAIN_ICON)); // 👈 Icône principale
 
     // Enregistrement de la classe
@@ -41,7 +47,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
         return 0;
     }
 
-    // Chargement du menu depuis les ressources
+    // Chargement du menu depuis les ressources (fichier .rc doit référencer IDR_MAINMENU)
     HMENU hMenuBar = LoadMenu(hInstance, MAKEINTRESOURCE(IDR_MAINMENU));
     if (hMenuBar)
         SetMenu(hwnd, hMenuBar);
@@ -52,7 +58,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
     ShowWindow(hwnd, nCmdShow);
     UpdateWindow(hwnd);
 
-    // Boucle principale de messages
+    // Boucle principale de messages Windows
     MSG msg = {};
     while (GetMessage(&msg, NULL, 0, 0))
     {

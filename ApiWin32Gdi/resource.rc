@@ -12,24 +12,24 @@ IDI_MAIN_ICON ICON "ApiWin32Gdi.ico"
 
 IDR_MAINMENU MENU
 BEGIN
-    POPUP "Fichier"
-    BEGIN
-        MENUITEM "Ouvrir...",            ID_FILE_OPEN
-        MENUITEM "Enregistrer sous...",  ID_FILE_SAVE
-        MENUITEM SEPARATOR
-        MENUITEM "Quitter",              ID_FILE_EXIT
-    END
+POPUP "Fichier"
+BEGIN
+MENUITEM "Ouvrir...", ID_FILE_OPEN
+MENUITEM "Enregistrer sous...", ID_FILE_SAVE
+MENUITEM SEPARATOR
+MENUITEM "Quitter", ID_FILE_EXIT
+END
 
-    POPUP "Steganographie"
-    BEGIN
-        MENUITEM "Integrer un message...", ID_STEG_EMBED
-        MENUITEM "Extraire un message...", ID_STEG_EXTRACT
-    END
+POPUP "Steganographie"
+BEGIN
+MENUITEM "Integrer un message...", ID_STEG_EMBED
+MENUITEM "Extraire un message...", ID_STEG_EXTRACT
+END
 
-    POPUP "Aide"
-    BEGIN
-        MENUITEM "A propos", ID_HELP_ABOUT
-    END
+POPUP "Aide"
+BEGIN
+MENUITEM "A propos", ID_HELP_ABOUT
+END
 END
 
 
@@ -42,10 +42,10 @@ STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Integrer un message"
 FONT 9, "Segoe UI"
 BEGIN
-    LTEXT       "Message a integrer :", -1, 8, 8, 120, 10
-    EDITTEXT    ID_EDIT_MESSAGE, 8, 22, 244, 96, ES_LEFT | ES_AUTOVSCROLL | ES_MULTILINE | WS_VSCROLL | WS_BORDER
-    DEFPUSHBUTTON "OK",     IDOK,     116, 126, 60, 14
-    PUSHBUTTON   "Annuler", IDCANCEL, 192, 126, 60, 14
+LTEXT       "Message a integrer :", -1, 8, 8, 120, 10
+EDITTEXT    ID_EDIT_MESSAGE, 8, 22, 244, 96, ES_LEFT | ES_AUTOVSCROLL | ES_MULTILINE | WS_VSCROLL | WS_BORDER
+DEFPUSHBUTTON "OK", IDOK, 116, 126, 60, 14
+PUSHBUTTON   "Annuler", IDCANCEL, 192, 126, 60, 14
 END
 // ===============================
 // BOÎTE DE DIALOGUE : À PROPOS

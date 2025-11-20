@@ -2,8 +2,11 @@
 #include "RendererGDI.h"
 
 // ============================================================
-// Fonction utilitaire : ajuste une image ・la fenêtre
-// tout en conservant son ratio largeur/hauteur
+// Fonction utilitaire : ajuste une image à la fenêtre
+// tout en conservant son ratio largeur/hauteur.
+// Entrées : imgW/imgH = taille source,
+//           dst = rectangle de destination (client area),
+// Sortie : out = rectangle centré et dimensionné pour conserver le ratio.
 // ============================================================
 static void FitRectKeepAspect(int imgW, int imgH, const RECT& dst, RECT& out)
 {
@@ -16,7 +19,7 @@ static void FitRectKeepAspect(int imgW, int imgH, const RECT& dst, RECT& out)
         return;
     }
 
-    // Calcul du facteur d'échelle (le plus petit)
+    // Calcul du facteur d'échelle (prendre le plus petit pour que l'image tienne)
     double sx = (double)dstW / imgW;
     double sy = (double)dstH / imgH;
     double s = (sx < sy) ? sx : sy;
@@ -35,7 +38,9 @@ static void FitRectKeepAspect(int imgW, int imgH, const RECT& dst, RECT& out)
 // ============================================================
 // Fonction : RenderImage
 // Objectif : afficher un BMP 24/32 bits dans la fenêtre,
-//             ajust・・la taille tout en gardant le ratio
+//            ajuster la taille tout en gardant le ratio.
+// Hypothèses : info32 décrit un DIB 32 bits (biBitCount=32) top-down (biHeight négatif),
+//              data32 pointe sur les pixels en format BGRA (B,G,R,A).
 // ============================================================
 void RenderImage(HDC hdc, BITMAPINFO* info32, BYTE* data32)
 {
@@ -46,8 +51,6 @@ void RenderImage(HDC hdc, BITMAPINFO* info32, BYTE* data32)
     int imgW = info32->bmiHeader.biWidth;
     int imgH = abs(info32->bmiHeader.biHeight);
 
-    // Get full client rect from the HDC's window (safer than GetClipBox
-    // which can return a partial region and leave previous content visible)
     RECT client;
     HWND hwnd = WindowFromDC(hdc);
     if (hwnd)
@@ -55,17 +58,17 @@ void RenderImage(HDC hdc, BITMAPINFO* info32, BYTE* data32)
     else
         GetClipBox(hdc, &client);
 
-    // Clear the background so there is no ghost/duplicate image left.
-    // Use the window background color (COLOR_WINDOW+1) to match the original.
+    // Effacer le fond pour éviter les ghost/duplications résiduelles.
+    // On utilise la couleur de fond de fenêtre pour que l'aspect soit cohérent.
     HBRUSH hbr = (HBRUSH)(COLOR_WINDOW + 1);
-    // FillRect expects an HBRUSH handle; convert COLOR_* to brush with GetSysColorBrush.
     FillRect(hdc, &client, GetSysColorBrush(COLOR_WINDOW));
 
-    // Calcul du rectangle de destination ajust・
+    // Calcul du rectangle de destination qui conserve l'aspect.
     RECT dstRect;
     FitRectKeepAspect(imgW, imgH, client, dstRect);
 
-    // Affichage de l'image avec GDI
+    // Affichage de l'image avec StretchDIBits. StretchDIBits lit les pixels
+    // fournis via data32 et interprète info32->bmiHeader pour le format.
     StretchDIBits(
         hdc,
         dstRect.left, dstRect.top,
@@ -80,4 +83,4 @@ void RenderImage(HDC hdc, BITMAPINFO* info32, BYTE* data32)
     );
 }
 
-// les fichiers enregistrer gardent leurs orientation mais les fichier telecharger jamais passer par l'api sont invers
+// Note : commentaire non finalisé dans le dépôt original à propos d'orientation.
