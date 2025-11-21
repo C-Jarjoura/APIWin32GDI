@@ -1,6 +1,6 @@
 #pragma once
 
-// ---------- Menu principal ----------
+// ---------- Main menu ----------
 #define ID_FILE_OPEN        101
 #define ID_FILE_SAVE        102
 #define ID_FILE_EXIT        103
@@ -13,13 +13,13 @@
 #define IDR_MAINMENU        400
 
 
-// ---------- Boîtes de dialogue ----------
-#define IDD_EMBED           1001   // boîte "Intégrer un message"
+// ---------- Dialogs ----------
+#define IDD_EMBED           1001   // dialog "Embed a message"
 
 
-// ---------- Contrôles de dialogue ----------
-#define ID_EDIT_MESSAGE     5001   // zone de texte du message
-// ---------- Boîte "À propos" ----------
-#define IDD_ABOUT          2001
-#define IDC_ABOUT_TEXT     2002
-#define IDI_MAIN_ICON      9001
+// ---------- Dialog controls ----------
+#define ID_EDIT_MESSAGE     5001   // message text box
+// ---------- About box ----------
+#define IDD_ABOUT           2001
+#define IDC_ABOUT_TEXT      2002
+#define IDI_MAIN_ICON       9001
