@@ -3,12 +3,8 @@
 #include "ImageManager.h"
 
 // ============================================================
-//  LoadBMP : charge BMP 24/32 bits et convertit en DIB 32 bits BGRA top-down
-// Notes importantes:
-// - Supporte uniquement BMP non compressés (biCompression == BI_RGB).
-// - Retourne info (BITMAPINFO*) alloué via malloc(sizeof(BITMAPINFOHEADER))
-//   et data (BYTE*) alloué via new BYTE[..].
-// - L'image résultante est top-down (biHeight négatif) et 32bpp BGRA.
+//  Fonction : LoadBMP
+//  Objectif : Charger un BMP 24 ou 32 bits, le convertir en top-down
 // ============================================================
 bool LoadBMP(const wchar_t* filename, BITMAPINFO*& info, BYTE*& data)
 {
@@ -30,7 +26,6 @@ bool LoadBMP(const wchar_t* filename, BITMAPINFO*& info, BYTE*& data)
 
     DWORD bytesRead = 0;
     BITMAPFILEHEADER fileHeader;
-    // Vérifier la réussite de ReadFile et le nombre d'octets lus
     if (!ReadFile(hFile, &fileHeader, sizeof(fileHeader), &bytesRead, NULL) || bytesRead != sizeof(fileHeader))
     {
         CloseHandle(hFile);
@@ -47,7 +42,6 @@ bool LoadBMP(const wchar_t* filename, BITMAPINFO*& info, BYTE*& data)
     }
 
     BITMAPINFOHEADER infoHeader;
-    // Lire l'en-tête BITMAPINFOHEADER en vérifiant la lecture
     if (!ReadFile(hFile, &infoHeader, sizeof(infoHeader), &bytesRead, NULL) || bytesRead != sizeof(infoHeader))
     {
         CloseHandle(hFile);
@@ -67,7 +61,6 @@ bool LoadBMP(const wchar_t* filename, BITMAPINFO*& info, BYTE*& data)
     int height = abs(infoHeader.biHeight);
     int bpp = infoHeader.biBitCount;
 
-    // Défense basique : vérifier valeurs plausibles pour éviter overflows
     if (width <= 0 || height <= 0 || (bpp != 24 && bpp != 32))
     {
         CloseHandle(hFile);
@@ -75,7 +68,6 @@ bool LoadBMP(const wchar_t* filename, BITMAPINFO*& info, BYTE*& data)
         return false;
     }
 
-    // Calcul du stride source (aligné sur 4 octets)
     int srcBytesPerPixel = (bpp == 32 ? 4 : 3);
     const long long tmpStride = (long long)width * srcBytesPerPixel;
     if (tmpStride > INT_MAX) {
@@ -238,8 +230,8 @@ bool LoadBMP(const wchar_t* filename, BITMAPINFO*& info, BYTE*& data)
 }
 
 // ============================================================
-//  SaveBMP : sauvegarde un DIB BGRA top-down en BMP non compressé.
-//  Ajout : vérification des retours de WriteFile pour détecter erreurs d'écriture.
+//  Fonction : SaveBMP
+//  Objectif : Sauvegarder un BMP dans le même sens que la mémoire (top-down)
 // ============================================================
 bool SaveBMP(const wchar_t* filename, BYTE* data, BITMAPINFO* info)
 {

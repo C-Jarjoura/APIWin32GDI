@@ -16,8 +16,6 @@ static bool g_isMaximized = false;
 static WINDOWPLACEMENT g_prevPlacement = { sizeof(WINDOWPLACEMENT) };
 
 // Basculer maximisation marche/arrêt (conserve la bordure et le menu)
-// Principe : on sauvegarde la WINDOWPLACEMENT courant puis ShowWindow(SW_MAXIMIZE).
-// Pour restaurer, on réapplique la WINDOWPLACEMENT sauvegardée.
 static void ToggleMaximize(HWND hwnd)
 {
     if (!hwnd) return;
@@ -62,8 +60,6 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
     }
 
     case WM_ERASEBKGND:
-        // Nous gérons l'effacement du fond dans RenderImage (FillRect). Retourner une valeur non nulle
-        // empêche l'effacement par défaut qui peut laisser des artefacts lors du redimensionnement.
         return 1;
 
     case WM_SIZE:

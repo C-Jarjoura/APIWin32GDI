@@ -1,12 +1,9 @@
 ﻿#include "StegEngine.h"
 #include <cstring>
 
-// Magic signature pour identifier la présence d'un message dans le flux de LSB.
-// On écrit d'abord ces 4 octets 'S','T','E','G'.
 static const BYTE MAGIC[4] = { 'S','T','E','G' };
 
-// Ecriture/lecture d'un bit dans le LSB d'un octet.
-// On n'altère que le bit de poids faible du canal, les autres bits restent inchangés.
+// On écrit les bits dans l’ordre BGRA (on n’utilise pas A), ici B,G,R => 3 LSB par pixel.
 static inline void put_bit(BYTE& b, int bit) {
     b = (BYTE)((b & 0xFE) | (bit & 1));
 }
@@ -15,26 +12,22 @@ static inline int get_bit(BYTE b) {
     return (b & 1);
 }
 
-// EmbedLSB : encode messageUtf8 dans pixels (BGRA 32bpp).
-// Format stocké : [MAGIC(4)][LENGTH(4 little endian)][DATA(len bytes)]
-// On n'utilise que les 3 canaux B,G,R par pixel (alpha laissé intact).
 bool EmbedLSB(BYTE* pixels, size_t size, const std::string& msg) {
     if (!pixels) return false;
 
     // Buffer total à écrire
     const uint32_t len = (uint32_t)msg.size();
-    const size_t total = 4 + 4 + (size_t)len; // magic + length + data
+    const size_t total = 4 + 4 + (size_t)len;
 
     // Capacité : nombre de pixels * 3 bits (B,G,R)
     const size_t pixelsCount = size / 4;
     const size_t capacityBits = pixelsCount * 3;
     const size_t neededBits = total * 8ull;
-    if (neededBits > capacityBits) return false; // pas assez de place
+    if (neededBits > capacityBits) return false;
 
     // Index bit courant dans le flux d'écriture (0..capacityBits-1)
     size_t bitIndex = 0;
 
-    // Lambda local pour écrire un octet bit par bit (LSB-first).
     auto writeByte = [&](BYTE v) {
         for (int i = 0; i < 8; ++i) {
             int bit = (v >> i) & 1;
@@ -59,8 +52,6 @@ bool EmbedLSB(BYTE* pixels, size_t size, const std::string& msg) {
     return true;
 }
 
-// ExtractLSB : lit la signature puis la longueur et enfin les données.
-// Retourne la string (UTF-8) si successful, sinon string vide.
 std::string ExtractLSB(const BYTE* pixels, size_t size) {
     std::string out;
     if (!pixels) return out;
@@ -68,16 +59,15 @@ std::string ExtractLSB(const BYTE* pixels, size_t size) {
     const size_t pixelsCount = size / 4;
     const size_t capacityBits = pixelsCount * 3;
 
-    // Lambda pour lire un octet à partir du bitIndex courant (LSB-first).
     auto readByteAt = [&](size_t& bitIndex) -> BYTE {
         BYTE v = 0;
         for (int i = 0; i < 8; ++i) {
-            if (bitIndex >= capacityBits) return 0; // sécurité : pas assez de bits
+            if (bitIndex >= capacityBits) return 0;
             size_t p = bitIndex / 3;
             int c = (int)(bitIndex % 3);
             const BYTE* px = pixels + p * 4;
             int bit = (c == 0) ? get_bit(px[0]) : (c == 1) ? get_bit(px[1]) : get_bit(px[2]);
-            v |= (BYTE)(bit << i);
+            v |= (BYTE)(bit << i);  // LSB-first
             ++bitIndex;
         }
         return v;

@@ -4,9 +4,6 @@
 // ============================================================
 // Fonction utilitaire : ajuste une image à la fenêtre
 // tout en conservant son ratio largeur/hauteur.
-// Entrées : imgW/imgH = taille source,
-//           dst = rectangle de destination (client area),
-// Sortie : out = rectangle centré et dimensionné pour conserver le ratio.
 // ============================================================
 static void FitRectKeepAspect(int imgW, int imgH, const RECT& dst, RECT& out)
 {
@@ -39,8 +36,6 @@ static void FitRectKeepAspect(int imgW, int imgH, const RECT& dst, RECT& out)
 // Fonction : RenderImage
 // Objectif : afficher un BMP 24/32 bits dans la fenêtre,
 //            ajuster la taille tout en gardant le ratio.
-// Hypothèses : info32 décrit un DIB 32 bits (biBitCount=32) top-down (biHeight négatif),
-//              data32 pointe sur les pixels en format BGRA (B,G,R,A).
 // ============================================================
 void RenderImage(HDC hdc, BITMAPINFO* info32, BYTE* data32)
 {
@@ -67,8 +62,7 @@ void RenderImage(HDC hdc, BITMAPINFO* info32, BYTE* data32)
     RECT dstRect;
     FitRectKeepAspect(imgW, imgH, client, dstRect);
 
-    // Affichage de l'image avec StretchDIBits. StretchDIBits lit les pixels
-    // fournis via data32 et interprète info32->bmiHeader pour le format.
+    // Affichage de l'image avec GDI
     StretchDIBits(
         hdc,
         dstRect.left, dstRect.top,

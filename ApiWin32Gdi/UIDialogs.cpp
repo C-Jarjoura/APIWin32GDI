@@ -5,21 +5,16 @@
 #include "resource.h"
 
 // Conversion Wide (wstring) -> UTF-8 (std::string)
-// Utilisé pour encoder le message saisi par l'utilisateur avant
-// d'appeler l'engine de stéganographie (qui travaille en bytes/UTF-8).
 static std::string WideToUtf8(const std::wstring& w) {
     if (w.empty()) return {};
-    // WideCharToMultiByte : première passe pour connaître la taille nécessaire.
     int needed = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), nullptr, 0, nullptr, nullptr);
     std::string out(needed, '\0');
-    // Deuxième passe : conversion effective (n'écrit pas le '\0' final car on ne demande pas la taille +1).
     WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), &out[0], needed, nullptr, nullptr);
 
     return out;
 }
 
 // Conversion UTF-8 -> Wide (wstring)
-// Utilisé pour afficher dans MessageBox (qui attend wchar_t* en Unicode).
 static std::wstring Utf8ToWide(const std::string& s) {
     if (s.empty()) return {};
     int needed = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), (int)s.size(), nullptr, 0);
@@ -29,8 +24,6 @@ static std::wstring Utf8ToWide(const std::string& s) {
     return out;
 }
 
-// Procédure de dialogue basique (version initiale / minimaliste).
-// Ici on ne fait que gérer OK/Cancel.
 static INT_PTR CALLBACK EmbedDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
     case WM_INITDIALOG:
@@ -48,17 +41,12 @@ static INT_PTR CALLBACK EmbedDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM 
     return FALSE;
 }
 
-
-// --------- Implémentation révisée fonctionnelle ---------
-// On utilise ici une petite structure de contexte pour récupérer
-// le texte entré dans la boîte de dialogue.
 struct EmbedCtx {
-    std::wstring text; // texte saisi (wide) par l'utilisateur
+    std::wstring text;
 };
 
-// Procédure de dialogue améliorée : récupère le texte dans un contrôle (ID_EDIT_MESSAGE).
 static INT_PTR CALLBACK EmbedDlgProc2(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam) {
-    static EmbedCtx* ctx = nullptr; // stockage temporaire du contexte pour la durée du dialog
+    static EmbedCtx* ctx = nullptr;
     switch (msg) {
     case WM_INITDIALOG:
         ctx = reinterpret_cast<EmbedCtx*>(lParam);
@@ -72,7 +60,7 @@ static INT_PTR CALLBACK EmbedDlgProc2(HWND hDlg, UINT msg, WPARAM wParam, LPARAM
             // Récupère le texte saisi (limité à 4096 wchar_t ici)
             wchar_t buf[4096];
             GetDlgItemText(hDlg, ID_EDIT_MESSAGE, buf, 4096);
-            ctx->text = buf; // copie dans le contexte fourni par l'appelant
+            ctx->text = buf;
             EndDialog(hDlg, IDOK);
             return TRUE;
         }
@@ -91,22 +79,18 @@ void DialogEmbedMessage(HWND hwnd, BYTE* pixels, BITMAPINFO* info) {
 
     EmbedCtx ctx;
     INT_PTR r = DialogBoxParam(GetModuleHandle(nullptr), MAKEINTRESOURCE(IDD_EMBED), hwnd, EmbedDlgProc2, (LPARAM)&ctx);
-    if (r != IDOK) return; // si l'utilisateur annule, on sort
+    if (r != IDOK) return;
 
     // Conversion en UTF-8 (l'engine attend une std::string en UTF-8)
     std::string utf8 = WideToUtf8(ctx.text);
 
-    // Calcul de la taille en octets des pixels (width * 4 * height)
     const size_t byteSize = (size_t)info->bmiHeader.biWidth * 4ull * (size_t)abs(info->bmiHeader.biHeight);
 
-    // Appel de l'engine : si le message est trop long, on affiche une alerte.
     if (!EmbedLSB(pixels, byteSize, utf8)) {
         MessageBox(hwnd, L"Message trop long pour cette image (capacité insuffisante).", L"Erreur", MB_ICONERROR);
         return;
     }
 
-    // Forcer le redessin (InvalidateRect) pour que le rendu prenne en compte
-    // les pixels modifiés (on ne demande pas d'effacement, le rendu gère le fond).
     InvalidateRect(hwnd, NULL, FALSE);
     MessageBox(hwnd, L"Message intégré avec succès.", L"OK", MB_OK | MB_ICONINFORMATION);
 }
